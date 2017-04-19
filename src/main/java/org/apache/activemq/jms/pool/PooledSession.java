@@ -5,9 +5,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,55 +16,41 @@
  */
 package org.apache.activemq.jms.pool;
 
-import java.io.Serializable;
-import java.util.Iterator;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.jms.BytesMessage;
-import javax.jms.Destination;
-import javax.jms.JMSException;
-import javax.jms.MapMessage;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageListener;
-import javax.jms.MessageProducer;
-import javax.jms.ObjectMessage;
-import javax.jms.Queue;
-import javax.jms.QueueBrowser;
-import javax.jms.QueueReceiver;
-import javax.jms.QueueSender;
-import javax.jms.QueueSession;
-import javax.jms.Session;
-import javax.jms.StreamMessage;
-import javax.jms.TemporaryQueue;
-import javax.jms.TemporaryTopic;
-import javax.jms.TextMessage;
-import javax.jms.Topic;
-import javax.jms.TopicPublisher;
-import javax.jms.TopicSession;
-import javax.jms.TopicSubscriber;
-import javax.jms.XASession;
-import javax.transaction.xa.XAResource;
-
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.jms.*;
+import javax.transaction.xa.XAResource;
+import java.io.Serializable;
+import java.lang.IllegalStateException;
+import java.util.Iterator;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PooledSession implements Session, TopicSession, QueueSession, XASession {
     private static final transient Logger LOG = LoggerFactory.getLogger(PooledSession.class);
 
     private final SessionKey key;
+
     private final KeyedObjectPool<SessionKey, SessionHolder> sessionPool;
+
     private final CopyOnWriteArrayList<MessageConsumer> consumers = new CopyOnWriteArrayList<MessageConsumer>();
+
     private final CopyOnWriteArrayList<QueueBrowser> browsers = new CopyOnWriteArrayList<QueueBrowser>();
+
     private final CopyOnWriteArrayList<PooledSessionEventListener> sessionEventListeners = new CopyOnWriteArrayList<PooledSessionEventListener>();
+
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private SessionHolder sessionHolder;
+
     private boolean transactional = true;
+
     private boolean ignoreClose;
+
     private boolean isXa;
+
     private boolean useAnonymousProducers = true;
 
     public PooledSession(SessionKey key, SessionHolder sessionHolder, KeyedObjectPool<SessionKey, SessionHolder> sessionPool, boolean transactional, boolean anonymous) {
@@ -103,12 +89,12 @@ public class PooledSession implements Session, TopicSession, QueueSession, XASes
                 getInternalSession().setMessageListener(null);
 
                 // Close any consumers and browsers that may have been created.
-                for (Iterator<MessageConsumer> iter = consumers.iterator(); iter.hasNext();) {
+                for (Iterator<MessageConsumer> iter = consumers.iterator(); iter.hasNext(); ) {
                     MessageConsumer consumer = iter.next();
                     consumer.close();
                 }
 
-                for (Iterator<QueueBrowser> iter = browsers.iterator(); iter.hasNext();) {
+                for (Iterator<QueueBrowser> iter = browsers.iterator(); iter.hasNext(); ) {
                     QueueBrowser browser = iter.next();
                     browser.close();
                 }
@@ -469,8 +455,7 @@ public class PooledSession implements Session, TopicSession, QueueSession, XASes
      * session, by which we know do not need to keep track of the consumer, as
      * its already closed.
      *
-     * @param consumer
-     *            the consumer which is being closed
+     * @param consumer the consumer which is being closed
      */
     protected void onConsumerClose(MessageConsumer consumer) {
         consumers.remove(consumer);
@@ -483,5 +468,35 @@ public class PooledSession implements Session, TopicSession, QueueSession, XASes
         }
 
         return sessionHolder;
+    }
+
+    @Override
+    public MessageConsumer createSharedConsumer(Topic topic, String sharedSubscriptionName) throws JMSException {
+        return addConsumer(getInternalSession().createSharedConsumer(topic, sharedSubscriptionName));
+    }
+
+    @Override
+    public MessageConsumer createSharedConsumer(Topic topic, String sharedSubscriptionName, String messageSelector) throws JMSException {
+        return addConsumer(getInternalSession().createSharedConsumer(topic, sharedSubscriptionName, messageSelector));
+    }
+
+    @Override
+    public MessageConsumer createDurableConsumer(Topic topic, String name) throws JMSException {
+        return addConsumer(getInternalSession().createDurableConsumer(topic, name));
+    }
+
+    @Override
+    public MessageConsumer createDurableConsumer(Topic topic, String name, String messageSelector, boolean noLocal) throws JMSException {
+        return addConsumer(getInternalSession().createDurableConsumer(topic, name, messageSelector, noLocal));
+    }
+
+    @Override
+    public MessageConsumer createSharedDurableConsumer(Topic topic, String name) throws JMSException {
+        return addConsumer(getInternalSession().createSharedDurableConsumer(topic, name));
+    }
+
+    @Override
+    public MessageConsumer createSharedDurableConsumer(Topic topic, String name, String messageSelector) throws JMSException {
+        return addConsumer(getInternalSession().createSharedDurableConsumer(topic, name, messageSelector));
     }
 }

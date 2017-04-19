@@ -41,8 +41,7 @@
 
 
 
-        <geronimo-jms_2.0_spec.version>1.0-alpha-2</geronimo-jms_2.0_spec.version>
-        <geronimo-jms_1.1_spec.version>1.1.1</geronimo-jms_1.1_spec.version>
+        <javax.jms-api.version>2.0.1</javax.jms-api.version>
         <geronimo-transaction.version>2.2.1</geronimo-transaction.version>
         <geronimo-annotation_1.0_spec.version>1.1.1</geronimo-annotation_1.0_spec.version>
         <geronimo-jta_1.0.1B_spec.version>1.0.1</geronimo-jta_1.0.1B_spec.version>
@@ -70,10 +69,11 @@
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j-version}</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/javax.jms/javax.jms-api -->
         <dependency>
-            <groupId>org.apache.geronimo.specs</groupId>
-            <artifactId>geronimo-jms_1.1_spec</artifactId>
-            <version>${geronimo-jms_1.1_spec.version}</version>
+            <groupId>javax.jms</groupId>
+            <artifactId>javax.jms-api</artifactId>
+            <version>${javax.jms-api.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.geronimo.components</groupId>

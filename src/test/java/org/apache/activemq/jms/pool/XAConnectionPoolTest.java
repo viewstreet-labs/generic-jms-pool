@@ -5,9 +5,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,43 +16,20 @@
  */
 package org.apache.activemq.jms.pool;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import java.util.Hashtable;
-import java.util.Vector;
-
-import javax.jms.JMSException;
-import javax.jms.QueueConnection;
-import javax.jms.QueueConnectionFactory;
-import javax.jms.QueueSender;
-import javax.jms.QueueSession;
-import javax.jms.Session;
-import javax.jms.TopicConnection;
-import javax.jms.TopicConnectionFactory;
-import javax.jms.TopicPublisher;
-import javax.jms.TopicSession;
-import javax.jms.XAConnection;
-import javax.jms.XAConnectionFactory;
-import javax.naming.spi.ObjectFactory;
-import javax.transaction.HeuristicMixedException;
-import javax.transaction.HeuristicRollbackException;
-import javax.transaction.InvalidTransactionException;
-import javax.transaction.NotSupportedException;
-import javax.transaction.RollbackException;
-import javax.transaction.Status;
-import javax.transaction.Synchronization;
-import javax.transaction.SystemException;
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
-import javax.transaction.xa.XAResource;
-
 import org.apache.activemq.ActiveMQXAConnectionFactory;
 import org.apache.activemq.ActiveMQXASession;
 import org.apache.activemq.command.ActiveMQTopic;
 import org.junit.Test;
+
+import javax.jms.*;
+import javax.naming.spi.ObjectFactory;
+import javax.transaction.*;
+import javax.transaction.xa.XAResource;
+import java.lang.IllegalStateException;
+import java.util.Hashtable;
+import java.util.Vector;
+
+import static org.junit.Assert.*;
 
 public class XAConnectionPoolTest extends JmsPoolTestSupport {
 
@@ -64,7 +41,7 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
         XaPooledConnectionFactory pcf = new XaPooledConnectionFactory();
         pcf.setConnectionFactory(new XAConnectionFactoryOnly(new ActiveMQXAConnectionFactory("vm://test?broker.persistent=false")));
         // simple TM that is in a tx and will track syncs
-        pcf.setTransactionManager(new TransactionManager(){
+        pcf.setTransactionManager(new TransactionManager() {
             @Override
             public void begin() throws NotSupportedException, SystemException {
             }
@@ -166,10 +143,10 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
         ActiveMQTopic topic = new ActiveMQTopic("test");
         XaPooledConnectionFactory pcf = new XaPooledConnectionFactory();
         pcf.setConnectionFactory(new XAConnectionFactoryOnly(new ActiveMQXAConnectionFactory(
-            "vm://test?broker.persistent=false&broker.useJmx=false&jms.xaAckMode=" + Session.CLIENT_ACKNOWLEDGE)));
+                "vm://test?broker.persistent=false&broker.useJmx=false&jms.xaAckMode=" + Session.CLIENT_ACKNOWLEDGE)));
 
         // simple TM that is in a tx and will track syncs
-        pcf.setTransactionManager(new TransactionManager(){
+        pcf.setTransactionManager(new TransactionManager() {
             @Override
             public void begin() throws NotSupportedException, SystemException {
             }
@@ -262,7 +239,7 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
     }
 
     @Test(timeout = 60000)
-    public void testInstanceOf() throws  Exception {
+    public void testInstanceOf() throws Exception {
         XaPooledConnectionFactory pcf = new XaPooledConnectionFactory();
         assertTrue(pcf instanceof QueueConnectionFactory);
         assertTrue(pcf instanceof TopicConnectionFactory);
@@ -273,7 +250,7 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
     public void testBindable() throws Exception {
         XaPooledConnectionFactory pcf = new XaPooledConnectionFactory();
         assertTrue(pcf instanceof ObjectFactory);
-        assertTrue(((ObjectFactory)pcf).getObjectInstance(null, null, null, null) instanceof XaPooledConnectionFactory);
+        assertTrue(((ObjectFactory) pcf).getObjectInstance(null, null, null, null) instanceof XaPooledConnectionFactory);
         assertTrue(pcf.isTmFromJndi());
         pcf.stop();
     }
@@ -293,7 +270,7 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
     public void testSenderAndPublisherDest() throws Exception {
         XaPooledConnectionFactory pcf = new XaPooledConnectionFactory();
         pcf.setConnectionFactory(new ActiveMQXAConnectionFactory(
-            "vm://test?broker.persistent=false&broker.useJmx=false"));
+                "vm://test?broker.persistent=false&broker.useJmx=false"));
 
         QueueConnection connection = pcf.createQueueConnection();
         QueueSession session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
@@ -315,7 +292,7 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
     public void testSessionArgsIgnoredWithTm() throws Exception {
         XaPooledConnectionFactory pcf = new XaPooledConnectionFactory();
         pcf.setConnectionFactory(new ActiveMQXAConnectionFactory(
-            "vm://test?broker.persistent=false&broker.useJmx=false"));
+                "vm://test?broker.persistent=false&broker.useJmx=false"));
 
         // simple TM that with no tx
         pcf.setTransactionManager(new TransactionManager() {
@@ -387,6 +364,16 @@ public class XAConnectionPoolTest extends JmsPoolTestSupport {
         @Override
         public XAConnection createXAConnection(String userName, String password) throws JMSException {
             return connectionFactory.createXAConnection(userName, password);
+        }
+
+        @Override
+        public XAJMSContext createXAContext() {
+            return connectionFactory.createXAContext();
+        }
+
+        @Override
+        public XAJMSContext createXAContext(String userName, String password) {
+            return connectionFactory.createXAContext(userName, password);
         }
     }
 }

@@ -5,9 +5,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,29 +16,13 @@
  */
 package org.apache.activemq.jms.pool;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-
-import javax.jms.Connection;
-import javax.jms.ConnectionConsumer;
-import javax.jms.ConnectionMetaData;
-import javax.jms.Destination;
-import javax.jms.ExceptionListener;
-import javax.jms.IllegalStateException;
-import javax.jms.JMSException;
-import javax.jms.Queue;
-import javax.jms.QueueConnection;
-import javax.jms.QueueSession;
-import javax.jms.ServerSessionPool;
-import javax.jms.Session;
-import javax.jms.TemporaryQueue;
-import javax.jms.TemporaryTopic;
-import javax.jms.Topic;
-import javax.jms.TopicConnection;
-import javax.jms.TopicSession;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.jms.*;
+import javax.jms.IllegalStateException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Represents a proxy {@link Connection} which is-a {@link TopicConnection} and
@@ -55,9 +39,13 @@ public class PooledConnection implements TopicConnection, QueueConnection, Poole
     private static final transient Logger LOG = LoggerFactory.getLogger(PooledConnection.class);
 
     protected ConnectionPool pool;
+
     private volatile boolean stopped;
+
     private final List<TemporaryQueue> connTempQueues = new CopyOnWriteArrayList<TemporaryQueue>();
+
     private final List<TemporaryTopic> connTempTopics = new CopyOnWriteArrayList<TemporaryTopic>();
+
     private final List<PooledSession> loanedSessions = new CopyOnWriteArrayList<PooledSession>();
 
     /**
@@ -282,5 +270,25 @@ public class PooledConnection implements TopicConnection, QueueConnection, Poole
      */
     public int getNumtIdleSessions() {
         return this.pool.getNumIdleSessions();
+    }
+
+    @Override
+    public Session createSession(int sessionMode) throws JMSException {
+        return getConnection().createSession(sessionMode);
+    }
+
+    @Override
+    public Session createSession() throws JMSException {
+        return getConnection().createSession();
+    }
+
+    @Override
+    public ConnectionConsumer createSharedDurableConnectionConsumer(Topic topic, String subscriptionName, String messageSelector, ServerSessionPool sessionPool, int maxMessages) throws JMSException {
+        return getConnection().createSharedDurableConnectionConsumer(topic, subscriptionName, messageSelector, sessionPool, maxMessages);
+    }
+
+    @Override
+    public ConnectionConsumer createSharedConnectionConsumer(Topic topic, String subscriptionName, String messageSelector, ServerSessionPool sessionPool, int maxMessages) throws JMSException {
+        return getConnection().createSharedConnectionConsumer(topic, subscriptionName, messageSelector, sessionPool, maxMessages);
     }
 }
