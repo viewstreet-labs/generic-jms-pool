@@ -16,18 +16,6 @@
  */
 package org.apache.activemq.jms.pool;
 
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.QueueConnection;
-import javax.jms.QueueConnectionFactory;
-import javax.jms.TopicConnection;
-import javax.jms.TopicConnectionFactory;
-
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -36,13 +24,19 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jms.*;
+import java.lang.IllegalStateException;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * A JMS provider which pools Connection, Session and MessageProducer instances
  * so it can be used with tools like <a href="http://camel.apache.org/activemq.html">Camel</a> and Spring's
  * <a href="http://activemq.apache.org/spring-support.html">JmsTemplate and MessagListenerContainer</a>.
  * Connections, sessions and producers are returned to a pool after use so that they can be reused later
  * without having to undergo the cost of creating them again.
- *
+ * <p>
  * b>NOTE:</b> while this implementation does allow the creation of a collection of active consumers,
  * it does not 'pool' consumers. Pooling makes sense for connections, sessions and producers, which
  * are expensive to create and can remain idle a minimal cost. Consumers, on the other hand, are usually
@@ -50,12 +44,12 @@ import org.slf4j.LoggerFactory;
  * complete, it is best to close it rather than return it to a pool for later reuse: this is because,
  * even if a consumer is idle, ActiveMQ will keep delivering messages to the consumer's prefetch buffer,
  * where they'll get held until the consumer is active again.
- *
+ * <p>
  * If you are creating a collection of consumers (for example, for multi-threaded message consumption), you
  * might want to consider using a lower prefetch value for each consumer (e.g. 10 or 20), to ensure that
  * all messages don't end up going to just one of the consumers. See this FAQ entry for more detail:
  * http://activemq.apache.org/i-do-not-receive-messages-in-my-second-consumer.html
- *
+ * <p>
  * Optionally, one may configure the pool to examine and possibly evict objects as they sit idle in the
  * pool. This is performed by an "idle object eviction" thread, which runs asynchronously. Caution should
  * be used when configuring this optional feature. Eviction runs contend with client threads for access
@@ -68,17 +62,25 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     private static final transient Logger LOG = LoggerFactory.getLogger(PooledConnectionFactory.class);
 
     protected final AtomicBoolean stopped = new AtomicBoolean(false);
+
     private GenericKeyedObjectPool<ConnectionKey, ConnectionPool> connectionsPool;
 
     protected Object connectionFactory;
 
     private int maximumActiveSessionPerConnection = 500;
+
     private int idleTimeout = 30 * 1000;
+
     private boolean blockIfSessionPoolIsFull = true;
+
     private long blockIfSessionPoolIsFullTimeout = -1L;
+
     private long expiryTimeout = 0l;
+
     private boolean createConnectionOnStartup = true;
+
     private boolean useAnonymousProducers = true;
+
     private boolean reconnectOnException = true;
 
     // Temporary value used to always fetch the result of makeObject.
@@ -89,60 +91,60 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
             final GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
             poolConfig.setJmxEnabled(false);
             this.connectionsPool = new GenericKeyedObjectPool<ConnectionKey, ConnectionPool>(
-                new KeyedPooledObjectFactory<ConnectionKey, ConnectionPool>() {
-                    @Override
-                    public PooledObject<ConnectionPool> makeObject(ConnectionKey connectionKey) throws Exception {
-                        Connection delegate = createConnection(connectionKey);
+                    new KeyedPooledObjectFactory<ConnectionKey, ConnectionPool>() {
+                        @Override
+                        public PooledObject<ConnectionPool> makeObject(ConnectionKey connectionKey) throws Exception {
+                            Connection delegate = createConnection(connectionKey);
 
-                        ConnectionPool connection = createConnectionPool(delegate);
-                        connection.setIdleTimeout(getIdleTimeout());
-                        connection.setExpiryTimeout(getExpiryTimeout());
-                        connection.setMaximumActiveSessionPerConnection(getMaximumActiveSessionPerConnection());
-                        connection.setBlockIfSessionPoolIsFull(isBlockIfSessionPoolIsFull());
-                        if (isBlockIfSessionPoolIsFull() && getBlockIfSessionPoolIsFullTimeout() > 0) {
-                            connection.setBlockIfSessionPoolIsFullTimeout(getBlockIfSessionPoolIsFullTimeout());
-                        }
-                        connection.setUseAnonymousProducers(isUseAnonymousProducers());
-                        connection.setReconnectOnException(isReconnectOnException());
+                            ConnectionPool connection = createConnectionPool(delegate);
+                            connection.setIdleTimeout(getIdleTimeout());
+                            connection.setExpiryTimeout(getExpiryTimeout());
+                            connection.setMaximumActiveSessionPerConnection(getMaximumActiveSessionPerConnection());
+                            connection.setBlockIfSessionPoolIsFull(isBlockIfSessionPoolIsFull());
+                            if (isBlockIfSessionPoolIsFull() && getBlockIfSessionPoolIsFullTimeout() > 0) {
+                                connection.setBlockIfSessionPoolIsFullTimeout(getBlockIfSessionPoolIsFullTimeout());
+                            }
+                            connection.setUseAnonymousProducers(isUseAnonymousProducers());
+                            connection.setReconnectOnException(isReconnectOnException());
 
-                        LOG.trace("Created new connection: {}", connection);
+                            LOG.trace("Created new connection: {}", connection);
 
-                        PooledConnectionFactory.this.mostRecentlyCreated.set(connection);
+                            PooledConnectionFactory.this.mostRecentlyCreated.set(connection);
 
-                        return new DefaultPooledObject<ConnectionPool>(connection);
-                    }
-
-                    @Override
-                    public void destroyObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) throws Exception {
-                        ConnectionPool connection = pooledObject.getObject();
-                        try {
-                            LOG.trace("Destroying connection: {}", connection);
-                            connection.close();
-                        } catch (Exception e) {
-                            LOG.warn("Close connection failed for connection: " + connection + ". This exception will be ignored.",e);
-                        }
-                    }
-
-                    @Override
-                    public boolean validateObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) {
-                        ConnectionPool connection = pooledObject.getObject();
-                        if (connection != null && connection.expiredCheck()) {
-                            LOG.trace("Connection has expired: {} and will be destroyed", connection);
-                            return false;
+                            return new DefaultPooledObject<ConnectionPool>(connection);
                         }
 
-                        return true;
-                    }
+                        @Override
+                        public void destroyObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) throws Exception {
+                            ConnectionPool connection = pooledObject.getObject();
+                            try {
+                                LOG.trace("Destroying connection: {}", connection);
+                                connection.close();
+                            } catch (Exception e) {
+                                LOG.warn("Close connection failed for connection: " + connection + ". This exception will be ignored.", e);
+                            }
+                        }
 
-                    @Override
-                    public void activateObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) throws Exception {
-                    }
+                        @Override
+                        public boolean validateObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) {
+                            ConnectionPool connection = pooledObject.getObject();
+                            if (connection != null && connection.expiredCheck()) {
+                                LOG.trace("Connection has expired: {} and will be destroyed", connection);
+                                return false;
+                            }
 
-                    @Override
-                    public void passivateObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) throws Exception {
-                    }
+                            return true;
+                        }
 
-                }, poolConfig);
+                        @Override
+                        public void activateObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) throws Exception {
+                        }
+
+                        @Override
+                        public void passivateObject(ConnectionKey connectionKey, PooledObject<ConnectionPool> pooledObject) throws Exception {
+                        }
+
+                    }, poolConfig);
 
             // Set max idle (not max active) since our connections always idle in the pool.
             this.connectionsPool.setMaxIdlePerKey(1);
@@ -168,8 +170,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * into the pool.  In order to allocate new Connections based off this new ConnectionFactory
      * it is first necessary to {@link #clear} the pooled Connections.
      *
-     * @param toUse
-     *      The factory to use to create pooled Connections.
+     * @param toUse The factory to use to create pooled Connections.
      */
     public void setConnectionFactory(final Object toUse) {
         if (toUse instanceof ConnectionFactory) {
@@ -297,7 +298,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     public void stop() {
         if (stopped.compareAndSet(false, true)) {
             LOG.debug("Stopping the PooledConnectionFactory, number of connections in cache: {}",
-                      connectionsPool != null ? connectionsPool.getNumActive() : 0);
+                    connectionsPool != null ? connectionsPool.getNumActive() : 0);
             try {
                 if (connectionsPool != null) {
                     connectionsPool.close();
@@ -336,8 +337,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     /**
      * Sets the maximum number of active sessions per connection
      *
-     * @param maximumActiveSessionPerConnection
-     *      The maximum number of active session per connection in the pool.
+     * @param maximumActiveSessionPerConnection The maximum number of active session per connection in the pool.
      */
     public void setMaximumActiveSessionPerConnection(int maximumActiveSessionPerConnection) {
         this.maximumActiveSessionPerConnection = maximumActiveSessionPerConnection;
@@ -348,12 +348,12 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * Connection.getSession() will block if the session pool is full.  If the
      * argument false is given, it will change the default behavior and instead the
      * call to getSession() will throw a JMSException.
-     *
+     * <p>
      * The size of the session pool is controlled by the @see #maximumActive
      * property.
      *
      * @param block - if true, the call to getSession() blocks if the pool is full
-     * until a session object is available.  defaults to true.
+     *              until a session object is available.  defaults to true.
      */
     public void setBlockIfSessionPoolIsFull(boolean block) {
         this.blockIfSessionPoolIsFull = block;
@@ -413,8 +413,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * connections are tested when an attempt to check one out occurs so a Connection instance can sit
      * in the pool much longer than its idle timeout if connections are used infrequently.
      *
-     * @param idleTimeout
-     *      The maximum time a pooled Connection can sit unused before it is eligible for removal.
+     * @param idleTimeout The maximum time a pooled Connection can sit unused before it is eligible for removal.
      */
     public void setIdleTimeout(int idleTimeout) {
         this.idleTimeout = idleTimeout;
@@ -438,7 +437,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     }
 
     /**
-     * @return true if a Connection is created immediately on a call to {@link start}.
+     * @return true if a Connection is created immediately on a call to {link start}.
      */
     public boolean isCreateConnectionOnStartup() {
         return createConnectionOnStartup;
@@ -459,7 +458,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     /**
      * Should Sessions use one anonymous producer for all producer requests or should a new
      * MessageProducer be created for each request to create a producer object, default is true.
-     *
+     * <p>
      * When enabled the session only needs to allocate one MessageProducer for all requests and
      * the MessageProducer#send(destination, message) method can be used.  Normally this is the
      * right thing to do however it does result in the Broker not showing the producers per
@@ -475,8 +474,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * Sets whether a PooledSession uses only one anonymous MessageProducer instance or creates
      * a new MessageProducer for each call the create a MessageProducer.
      *
-     * @param value
-     *      Boolean value that configures whether anonymous producers are used.
+     * @param value Boolean value that configures whether anonymous producers are used.
      */
     public void setUseAnonymousProducers(boolean value) {
         this.useAnonymousProducers = value;
@@ -500,8 +498,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * <p/>
      * By default this value is set to -1 and no expiration thread ever runs.
      *
-     * @param timeBetweenExpirationCheckMillis
-     *      The time to wait between runs of the idle Connection eviction thread.
+     * @param timeBetweenExpirationCheckMillis The time to wait between runs of the idle Connection eviction thread.
      */
     public void setTimeBetweenExpirationCheckMillis(long timeBetweenExpirationCheckMillis) {
         getConnectionsPool().setTimeBetweenEvictionRunsMillis(timeBetweenExpirationCheckMillis);
@@ -525,8 +522,6 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * Delegate that creates each instance of an ConnectionPool object.  Subclasses can override
      * this method to customize the type of connection pool returned.
      *
-     * @param connection
-     *
      * @return instance of a new ConnectionPool.
      */
     protected ConnectionPool createConnectionPool(Connection connection) {
@@ -547,10 +542,10 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
      * Controls the behavior of the internal session pool. By default the call to
      * Connection.getSession() will block if the session pool is full.  This setting
      * will affect how long it blocks and throws an exception after the timeout.
-     *
+     * <p>
      * The size of the session pool is controlled by the @see #maximumActive
      * property.
-     *
+     * <p>
      * Whether or not the call to create session blocks is controlled by the @see #blockIfSessionPoolIsFull
      * property
      *
@@ -571,8 +566,7 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     /**
      * Controls weather the underlying connection should be reset (and renewed) on JMSException
      *
-     * @param reconnectOnException
-     *          Boolean value that configures whether reconnect on exception should happen
+     * @param reconnectOnException Boolean value that configures whether reconnect on exception should happen
      */
     public void setReconnectOnException(boolean reconnectOnException) {
         this.reconnectOnException = reconnectOnException;
@@ -581,11 +575,10 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
     /**
      * Called by any superclass that implements a JNDIReferencable or similar that needs to collect
      * the properties of this class for storage etc.
-     *
+     * <p>
      * This method should be updated any time there is a new property added.
      *
-     * @param props
-     *        a properties object that should be filled in with this objects property values.
+     * @param props a properties object that should be filled in with this objects property values.
      */
     protected void populateProperties(Properties props) {
         props.setProperty("maximumActiveSessionPerConnection", Integer.toString(getMaximumActiveSessionPerConnection()));
@@ -597,5 +590,25 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
         props.setProperty("useAnonymousProducers", Boolean.toString(isUseAnonymousProducers()));
         props.setProperty("blockIfSessionPoolIsFullTimeout", Long.toString(getBlockIfSessionPoolIsFullTimeout()));
         props.setProperty("reconnectOnException", Boolean.toString(isReconnectOnException()));
+    }
+
+    @Override
+    public JMSContext createContext() {
+        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+    }
+
+    @Override
+    public JMSContext createContext(int sessionMode) {
+        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+    }
+
+    @Override
+    public JMSContext createContext(String userName, String password) {
+        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+    }
+
+    @Override
+    public JMSContext createContext(String userName, String password, int sessionMode) {
+        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
     }
 }
