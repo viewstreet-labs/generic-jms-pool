@@ -24,7 +24,27 @@
     <version>5.14.5.0</version>
     <name>Generic JMS 2.0 Pool</name>
     <description>Generic JMS 2.0 Pooled ConnectionFactory</description>
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <url>https://github.com/viewstreet-labs/generic-jms-pool</url>
+    <developers>
+        <developer>
+            <name>Peter Doyle</name>
+            <email>doylep@viewstreet.com</email>
+            <organization>Viewstreet Technologies</organization>
+        </developer>
+    </developers>
     <packaging>bundle</packaging>
+
+    <scm>
+        <connection>scm:git:https://github.com/viewstreet-labs/generic-jms-pool.git</connection>
+        <developerConnection>scm:git:https://github.com/viewstreet-labs/generic-jms-pool.git</developerConnection>
+        <url>https://github.com/viewstreet-labs/generic-jms-pool</url>
+    </scm>
 
     <properties>
 
@@ -208,6 +228,20 @@
                     <argLine>-Xmx512m</argLine>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>sign-artefacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
 
         </plugins>
     </build>
@@ -261,5 +295,16 @@
             </build>
         </profile>
     </profiles>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
+    </distributionManagement>
 
 </project>
