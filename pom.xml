@@ -21,7 +21,7 @@
 
     <groupId>org.viewstreet</groupId>
     <artifactId>generic-jms-pool</artifactId>
-    <version>5.14.5.1-SNAPSHOT</version>
+    <version>5.14.5.2-SNAPSHOT</version>
     <name>Generic JMS 2.0 Pool</name>
     <description>Generic JMS 2.0 Pooled ConnectionFactory</description>
     <licenses>
@@ -44,7 +44,8 @@
         <connection>scm:git:https://github.com/viewstreet-labs/generic-jms-pool.git</connection>
         <developerConnection>scm:git:https://github.com/viewstreet-labs/generic-jms-pool.git</developerConnection>
         <url>https://github.com/viewstreet-labs/generic-jms-pool</url>
-    </scm>
+      <tag>generic-jms-pool-5.14.5.1</tag>
+  </scm>
 
     <properties>
 
