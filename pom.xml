@@ -21,7 +21,7 @@
 
     <groupId>org.viewstreet</groupId>
     <artifactId>generic-jms-pool</artifactId>
-    <version>5.14.5.2-SNAPSHOT</version>
+    <version>5.14.5.3-SNAPSHOT</version>
     <name>Generic JMS 2.0 Pool</name>
     <description>Generic JMS 2.0 Pooled ConnectionFactory</description>
     <licenses>
