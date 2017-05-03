@@ -21,7 +21,7 @@
 
     <groupId>org.viewstreet</groupId>
     <artifactId>generic-jms-pool</artifactId>
-    <version>5.14.5.0</version>
+    <version>5.14.5.1-SNAPSHOT</version>
     <name>Generic JMS 2.0 Pool</name>
     <description>Generic JMS 2.0 Pooled ConnectionFactory</description>
     <licenses>
@@ -67,6 +67,11 @@
         <geronimo-jta_1.0.1B_spec.version>1.0.1</geronimo-jta_1.0.1B_spec.version>
         <commons-pool2.version>2.4.2</commons-pool2.version>
         <activemq.version>5.14.4</activemq.version>
+
+
+
+        <additionalparam>-Xdoclint:none</additionalparam>
+
 
 
         <activemq.osgi.import.pkg>
@@ -230,6 +235,32 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.10.4</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <version>1.6</version>
                 <executions>
@@ -242,7 +273,17 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.8</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class PooledConnectionFactory implements ConnectionFactory, QueueConnectionFactory, TopicConnectionFactory {
     private static final transient Logger LOG = LoggerFactory.getLogger(PooledConnectionFactory.class);
+    private static final transient int UNSPECIFIED_SESSION_MODE = -1;
 
     protected final AtomicBoolean stopped = new AtomicBoolean(false);
 
@@ -592,23 +593,38 @@ public class PooledConnectionFactory implements ConnectionFactory, QueueConnecti
         props.setProperty("reconnectOnException", Boolean.toString(isReconnectOnException()));
     }
 
+    // TODO: The following JMS2.0 Context features should be implemented using a pool rather than raw access to the connectionFactory
     @Override
     public JMSContext createContext() {
-        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+        return createContext(null, null, UNSPECIFIED_SESSION_MODE);
     }
 
     @Override
     public JMSContext createContext(int sessionMode) {
-        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+        return createContext(null, null, sessionMode);
     }
 
     @Override
     public JMSContext createContext(String userName, String password) {
-        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+        return createContext(userName, password, UNSPECIFIED_SESSION_MODE);
     }
 
     @Override
     public JMSContext createContext(String userName, String password, int sessionMode) {
-        throw new UnsupportedOperationException("JMS2.0 Functionality Not Supported");
+        if (connectionFactory instanceof ConnectionFactory) {
+            if (userName == null && password == null) {
+                if (sessionMode == UNSPECIFIED_SESSION_MODE) {
+                    return ((ConnectionFactory) connectionFactory).createContext();
+                } else {
+                    return ((ConnectionFactory) connectionFactory).createContext(sessionMode);
+                }
+            } else if (sessionMode == UNSPECIFIED_SESSION_MODE) {
+                return ((ConnectionFactory) connectionFactory).createContext(userName, password);
+            } else {
+                return ((ConnectionFactory) connectionFactory).createContext(userName, password, sessionMode);
+            }
+        } else {
+            throw new IllegalStateException("connectionFactory should implement javax.jms.ConnectionFactory");
+        }
     }
 }
